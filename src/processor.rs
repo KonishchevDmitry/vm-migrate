@@ -29,11 +29,11 @@ pub async fn process(source_url: &Url, target_url: &Url) -> EmptyResult {
 
     let response = new_client()?.post(import_url).body(import_stream).send().await.map_err(|e| {
         if e.is_connect() {
-            return format!("Failed to establish connection to target VictoriaMetrics: {e}")
+            format!("Failed to establish connection to target VictoriaMetrics: {e}")
         } else if e.is_body() {
-            return e.to_string()
+            e.to_string()
         } else {
-            return format!("Target VictoriaMetrics connection error: {e}")
+            format!("Target VictoriaMetrics connection error: {e}")
         }
     })?;
 
