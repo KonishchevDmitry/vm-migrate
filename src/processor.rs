@@ -72,14 +72,26 @@ async fn get_import_stream(source_url: &Url, start_time: Option<&str>) -> impl S
             let result = migrator::migrate(&time_series);
             stat.add(&time_series, &result);
 
-            let mut buf = export_line.into_bytes();
-            buf.truncate(0);
+            match result {
+                MigratedTimeSeries::Unchanged => {
+                    let mut data = export_line.into_bytes();
+                    data.push(b'\n');
+                    yield data;
+                },
 
-            serde_json::to_writer(&mut buf, &time_series).map_err(|e| format!(
-                "Failed to serialize time series: {e}"))?;
-            buf.push(b'\n');
+                MigratedTimeSeries::Changed(time_series) => {
+                    let mut data = export_line.into_bytes();
+                    data.truncate(0);
 
-            yield buf;
+                    serde_json::to_writer(&mut data, &time_series).map_err(|e| format!(
+                        "Failed to serialize time series: {e}"))?;
+
+                    data.push(b'\n');
+                    yield data;
+                },
+
+                MigratedTimeSeries::Deleted => {},
+            }
         }
 
         stat.print();
