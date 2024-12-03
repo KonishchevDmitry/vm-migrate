@@ -14,8 +14,8 @@ use crate::stat::Stat;
 use crate::types::TimeSeries;
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn process(source_url: &Url, target_url: Option<&Url>) -> EmptyResult {
-    let import_stream = get_import_stream(source_url).await;
+pub async fn process(source_url: &Url, start_time: Option<&str>, target_url: Option<&Url>) -> EmptyResult {
+    let import_stream = get_import_stream(source_url, start_time).await;
 
     let Some(target_url) = target_url else {
         pin!(import_stream);
@@ -46,11 +46,12 @@ pub async fn process(source_url: &Url, target_url: Option<&Url>) -> EmptyResult 
     Ok(())
 }
 
-async fn get_import_stream(source_url: &Url) -> impl Stream<Item = GenericResult<Vec<u8>>> {
+async fn get_import_stream(source_url: &Url, start_time: Option<&str>) -> impl Stream<Item = GenericResult<Vec<u8>>> {
     let source_url = source_url.clone();
+    let start_time = start_time.map(ToOwned::to_owned);
 
     try_stream! {
-        let export_stream = get_export_stream(&source_url).await.map_err(|e| format!(
+        let export_stream = get_export_stream(&source_url, start_time.as_deref()).await.map_err(|e| format!(
             "Failed to establish connection to source VictoriaMetrics: {e}"))?
             .bytes_stream().map_err(|e| io::Error::new(ErrorKind::Other, e));
 
@@ -82,19 +83,19 @@ async fn get_import_stream(source_url: &Url) -> impl Stream<Item = GenericResult
     }
 }
 
-async fn get_export_stream(source_url: &Url) -> GenericResult<Response> {
+async fn get_export_stream(source_url: &Url, start_time: Option<&str>) -> GenericResult<Response> {
     let mut export_url = source_url.join("/api/v1/export").map_err(|e| format!(
         "Invalid URL: {e}"))?;
 
-    use std::time::SystemTime;
-    let start = format!("{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() - 60 * 60);
+    {
+        let mut query = export_url.query_pairs_mut();
+        query.append_pair("match", r#"{__name__!=""}"#);
+        query.append_pair("reduce_mem_usage", "1");
 
-    export_url.query_pairs_mut()
-        .append_pair("start", &start)
-        // .append_pair("match", r#"{__name__="server_kernel_errors"}"#) // FIXME(konishchev): HERE
-        // .append_pair("match", r#"{__name__="server:uptime"}"#) // FIXME(konishchev): HERE
-        .append_pair("match", r#"{__name__!=""}"#) // FIXME(konishchev): HERE
-        .append_pair("reduce_mem_usage", "1");
+        if let Some(start_time) = start_time {
+            query.append_pair("start", start_time);
+        }
+    }
 
     let response = new_client()?.get(export_url).send().await?;
 

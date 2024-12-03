@@ -33,7 +33,7 @@ fn main() -> ExitCode {
         std::process::abort();
     }));
 
-    if let Err(err) = processor::process(&config.source, config.target.as_ref()) {
+    if let Err(err) = processor::process(&config.source, config.start_time.as_deref(), config.target.as_ref()) {
         error!("{err}.");
         return ExitCode::FAILURE;
     }
@@ -44,6 +44,7 @@ fn main() -> ExitCode {
 
 struct Config {
     source: Url,
+    start_time: Option<String>,
     target: Option<Url>,
     log_level: Level,
 }
@@ -61,6 +62,11 @@ fn parse_args() -> GenericResult<Config> {
                 .short('v').long("verbose")
                 .action(ArgAction::Count)
                 .help("Set verbosity level"),
+
+            Arg::new("start")
+                .long("start")
+                .value_name("TIME")
+                .help("Start time (https://docs.victoriametrics.com/#timestamp-formats)"),
 
             Arg::new("source")
                 .value_name("SOURCE")
@@ -85,6 +91,7 @@ fn parse_args() -> GenericResult<Config> {
 
     Ok(Config {
         source: matches.get_one("source").cloned().unwrap(),
+        start_time: matches.get_one("start").cloned(),
         target: matches.get_one("target").cloned(),
         log_level,
     })
