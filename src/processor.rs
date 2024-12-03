@@ -10,8 +10,9 @@ use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::core::{EmptyResult, GenericResult};
+use crate::migrator;
+use crate::metrics::{TimeSeries, MigratedTimeSeries};
 use crate::stat::Stat;
-use crate::types::TimeSeries;
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn process(source_url: &Url, start_time: Option<&str>, target_url: Option<&Url>) -> EmptyResult {
@@ -67,7 +68,9 @@ async fn get_import_stream(source_url: &Url, start_time: Option<&str>) -> impl S
 
             let time_series: TimeSeries = serde_json::from_str(&export_line).map_err(|e| format!(
                 "Got an invalid time series ({e}): {export_line}"))?;
-            stat.add(&time_series);
+
+            let result = migrator::migrate(&time_series);
+            stat.add(&time_series, &result);
 
             let mut buf = export_line.into_bytes();
             buf.truncate(0);

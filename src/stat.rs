@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
 use tabled::{Table, Tabled};
 use tabled::settings::{Alignment, Height, object::{Rows, Columns}, style::Style};
 
-use crate::types::TimeSeries;
+use crate::metrics::{MigratedTimeSeries, TimeSeries};
 
 pub struct Stat {
     total: u64,
+    changes: HashSet<(String, Option<String>)>,
     metrics: HashMap<String, u64>,
 }
 
@@ -15,21 +16,30 @@ impl Stat {
     pub fn new() -> Stat {
         Stat {
             total: 0,
+            changes: HashSet::new(),
             metrics: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, time_series: &TimeSeries) {
-        let namespace = get_metric_namespace(time_series.name());
-        let count = time_series.values.len().try_into().unwrap();
+    pub fn add(&mut self, source: &TimeSeries, result: &MigratedTimeSeries) {
+        match result {
+            MigratedTimeSeries::Unchanged => {
+                self.count(source);
+            },
 
-        if let Some(total) = self.metrics.get_mut(namespace) {
-            *total += count;
-        } else {
-            self.metrics.insert(namespace.to_owned(), count);
+            MigratedTimeSeries::Changed(result) => {
+                if self.changes.insert((source.format_metric(), Some(result.format_metric()))) {
+                    let _ = writeln!(io::stdout(), "Change: {} -> {}", source.format_metric(), result.format_metric());
+                }
+                self.count(result);
+            },
+
+            MigratedTimeSeries::Deleted => {
+                if self.changes.insert((source.format_metric(), None)) {
+                    let _ = writeln!(io::stdout(), "Delete: {}", source.format_metric());
+                }
+            },
         }
-
-        self.total += count;
     }
 
     pub fn print(self) {
@@ -63,6 +73,19 @@ impl Stat {
         table.modify(Columns::single(1), Alignment::right());
 
         let _ = writeln!(io::stdout(), "\n{}", table);
+    }
+
+    fn count(&mut self, time_series: &TimeSeries) {
+        let namespace = get_metric_namespace(time_series.name());
+        let count = time_series.values.len().try_into().unwrap();
+
+        if let Some(total) = self.metrics.get_mut(namespace) {
+            *total += count;
+        } else {
+            self.metrics.insert(namespace.to_owned(), count);
+        }
+
+        self.total += count;
     }
 }
 

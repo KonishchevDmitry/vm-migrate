@@ -1,7 +1,8 @@
 #[macro_use] mod core;
+mod metrics;
+mod migrator;
 mod processor;
 mod stat;
-mod types;
 
 use std::io::{self, Write};
 use std::process::ExitCode;
