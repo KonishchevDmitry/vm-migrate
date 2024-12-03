@@ -1,5 +1,7 @@
 #[macro_use] mod core;
 mod processor;
+mod stat;
+mod types;
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -31,7 +33,7 @@ fn main() -> ExitCode {
         std::process::abort();
     }));
 
-    if let Err(err) = processor::process(&config.source, &config.target) {
+    if let Err(err) = processor::process(&config.source, config.target.as_ref()) {
         error!("{err}.");
         return ExitCode::FAILURE;
     }
@@ -42,7 +44,7 @@ fn main() -> ExitCode {
 
 struct Config {
     source: Url,
-    target: Url,
+    target: Option<Url>,
     log_level: Level,
 }
 
@@ -68,7 +70,6 @@ fn parse_args() -> GenericResult<Config> {
 
             Arg::new("target")
                 .value_name("TARGET")
-                .required(true)
                 .value_parser(value_parser!(Url))
                 .help("Target VictoriaMetrics URL"),
         ])
@@ -84,7 +85,7 @@ fn parse_args() -> GenericResult<Config> {
 
     Ok(Config {
         source: matches.get_one("source").cloned().unwrap(),
-        target: matches.get_one("target").cloned().unwrap(),
+        target: matches.get_one("target").cloned(),
         log_level,
     })
 }

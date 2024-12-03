@@ -1,33 +1,33 @@
-use std::collections::HashMap;
 use std::io::{self, ErrorKind};
 
 use async_stream::try_stream;
 use futures_core::stream::Stream;
 use futures_util::TryStreamExt;
 use reqwest::{self, Body, Client, ClientBuilder, Response};
-use serde_derive::{Deserialize, Serialize};
+use tokio::pin;
 use tokio::io::AsyncBufReadExt;
 use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::core::{EmptyResult, GenericResult};
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct TimeSeries {
-    metric: HashMap<String, String>,
-    values: Vec<Option<f64>>,
-    timestamps: Vec<u64>,
-}
+use crate::stat::Stat;
+use crate::types::TimeSeries;
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn process(source_url: &Url, target_url: &Url) -> EmptyResult {
+pub async fn process(source_url: &Url, target_url: Option<&Url>) -> EmptyResult {
+    let import_stream = get_import_stream(source_url).await;
+
+    let Some(target_url) = target_url else {
+        pin!(import_stream);
+        while import_stream.try_next().await?.is_some() {
+        }
+        return Ok(());
+    };
+
     let import_url = target_url.join("/api/v1/import").map_err(|e| format!(
         "Invalid URL: {e}"))?;
 
-    let import_stream = Body::wrap_stream(get_import_stream(source_url).await);
-
-    let response = new_client()?.post(import_url).body(import_stream).send().await.map_err(|e| {
+    let response = new_client()?.post(import_url).body(Body::wrap_stream(import_stream)).send().await.map_err(|e| {
         if e.is_connect() {
             format!("Failed to establish connection to target VictoriaMetrics: {e}")
         } else if e.is_body() {
@@ -54,6 +54,7 @@ async fn get_import_stream(source_url: &Url) -> impl Stream<Item = GenericResult
             "Failed to establish connection to source VictoriaMetrics: {e}"))?
             .bytes_stream().map_err(|e| io::Error::new(ErrorKind::Other, e));
 
+        let mut stat = Stat::new();
         let mut export_lines = StreamReader::new(export_stream).lines();
 
         loop {
@@ -65,6 +66,7 @@ async fn get_import_stream(source_url: &Url) -> impl Stream<Item = GenericResult
 
             let time_series: TimeSeries = serde_json::from_str(&export_line).map_err(|e| format!(
                 "Got an invalid time series ({e}): {export_line}"))?;
+            stat.add(&time_series);
 
             let mut buf = export_line.into_bytes();
             buf.truncate(0);
@@ -75,6 +77,8 @@ async fn get_import_stream(source_url: &Url) -> impl Stream<Item = GenericResult
 
             yield buf;
         }
+
+        stat.print();
     }
 }
 
@@ -82,10 +86,14 @@ async fn get_export_stream(source_url: &Url) -> GenericResult<Response> {
     let mut export_url = source_url.join("/api/v1/export").map_err(|e| format!(
         "Invalid URL: {e}"))?;
 
+    use std::time::SystemTime;
+    let start = format!("{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() - 60 * 60);
+
     export_url.query_pairs_mut()
-        .append_pair("match", r#"{__name__="server_kernel_errors"}"#) // FIXME(konishchev): HERE
+        .append_pair("start", &start)
+        // .append_pair("match", r#"{__name__="server_kernel_errors"}"#) // FIXME(konishchev): HERE
         // .append_pair("match", r#"{__name__="server:uptime"}"#) // FIXME(konishchev): HERE
-        // .append_pair("match", r#"{__name__!=""}"#) // FIXME(konishchev): HERE
+        .append_pair("match", r#"{__name__!=""}"#) // FIXME(konishchev): HERE
         .append_pair("reduce_mem_usage", "1");
 
     let response = new_client()?.get(export_url).send().await?;
