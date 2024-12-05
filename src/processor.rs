@@ -80,14 +80,33 @@ async fn get_import_stream(source_url: &Url, start_time: Option<&str>) -> impl S
                 },
 
                 MigratedTimeSeries::Changed(time_series) => {
-                    let mut data = export_line.into_bytes();
-                    data.truncate(0);
+                    let mut buf = export_line.into_bytes();
+                    buf.truncate(0);
 
-                    serde_json::to_writer(&mut data, &time_series).map_err(|e| format!(
+                    serde_json::to_writer(&mut buf, &time_series).map_err(|e| format!(
                         "Failed to serialize time series: {e}"))?;
 
-                    data.push(b'\n');
-                    yield data;
+                    buf.push(b'\n');
+                    yield buf;
+                },
+
+                MigratedTimeSeries::Rewrite(result) => {
+                    let mut buf = export_line.into_bytes();
+                    buf.truncate(0);
+
+                    let mut buf = Some(buf);
+
+                    for time_series in result {
+                        if !time_series.is_empty() {
+                            let mut buf = buf.take().unwrap_or_default();
+
+                            serde_json::to_writer(&mut buf, &time_series).map_err(|e| format!(
+                                "Failed to serialize time series: {e}"))?;
+
+                            buf.push(b'\n');
+                            yield buf;
+                        }
+                    }
                 },
 
                 MigratedTimeSeries::Deleted => {},

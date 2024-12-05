@@ -28,16 +28,26 @@ impl Stat {
             },
 
             MigratedTimeSeries::Changed(result) => {
-                if self.changes.insert((source.format_metric(), Some(result.format_metric()))) {
-                    let _ = writeln!(io::stdout(), "Change: {} -> {}", source.format_metric(), result.format_metric());
+                self.on_changed(source, result);
+            },
+
+            MigratedTimeSeries::Rewrite(results) => {
+                let mut is_empty = true;
+
+                for result in results {
+                    if !result.is_empty() {
+                        self.on_changed(source, result);
+                        is_empty = false;
+                    }
                 }
-                self.count(result);
+
+                if is_empty {
+                    self.on_deleted(source);
+                }
             },
 
             MigratedTimeSeries::Deleted => {
-                if self.changes.insert((source.format_metric(), None)) {
-                    let _ = writeln!(io::stdout(), "Delete: {}", source.format_metric());
-                }
+                self.on_deleted(source);
             },
         }
     }
@@ -75,9 +85,32 @@ impl Stat {
         let _ = writeln!(io::stdout(), "\n{}", table);
     }
 
+    fn on_changed(&mut self, source: &TimeSeries, result: &TimeSeries) {
+        if result.is_empty() {
+            return self.on_deleted(source);
+        }
+
+        if self.changes.insert((source.format_metric(), Some(result.format_metric()))) {
+            let (source, result) = (source.format_metric(), result.format_metric());
+            if source == result {
+                let _ = writeln!(io::stdout(), "Change: {source}");
+            } else {
+                let _ = writeln!(io::stdout(), "Change: {source} -> {result}");
+            }
+        }
+
+        self.count(result);
+    }
+
+    fn on_deleted(&mut self, source: &TimeSeries) {
+        if self.changes.insert((source.format_metric(), None)) {
+            let _ = writeln!(io::stdout(), "Delete: {}", source.format_metric());
+        }
+    }
+
     fn count(&mut self, time_series: &TimeSeries) {
         let namespace = get_metric_namespace(time_series.name());
-        let count = time_series.values.len().try_into().unwrap();
+        let count = time_series.len().try_into().unwrap();
 
         if let Some(total) = self.metrics.get_mut(namespace) {
             *total += count;

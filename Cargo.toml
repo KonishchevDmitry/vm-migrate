@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 async-stream = "0.3.6"
+chrono = { version = "0.4.38", features = ["clock"] }
 clap = "4.5.21"
 easy-logging = "1"
 futures-core = "0.3.31"
