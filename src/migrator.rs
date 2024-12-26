@@ -3,6 +3,52 @@ use chrono::{Local, TimeZone};
 use crate::metrics::{TimeSeries, MigratedTimeSeries};
 
 pub fn migrate(time_series: &TimeSeries) -> MigratedTimeSeries {
+    if time_series.name().starts_with("backup_") && time_series.label("job") == "node" && time_series.label("name") == "job" {
+        return MigratedTimeSeries::Deleted;
+    }
+
+    if time_series.label("service").contains("-org.fedoraproject.SetroubleshootPrivileged@") {
+        return MigratedTimeSeries::Deleted;
+    }
+
+    if time_series.label("job") == "node" && time_series.label("instance") != "proxy" && time_series.label("device") == "/dev/md127" {
+        let mut time_series = time_series.clone();
+        time_series.set_label("device", "/dev/md/root");
+        return MigratedTimeSeries::Rewrite(vec![time_series]);
+    }
+
+    if time_series.label("job") == "node" && time_series.label("instance") != "proxy" && time_series.label("device") == "md127" {
+        let mut time_series = time_series.clone();
+        time_series.set_label("device", "md/root");
+        return MigratedTimeSeries::Rewrite(vec![time_series]);
+    }
+
+    if time_series.label("job") == "node" && time_series.label("instance") != "proxy" && time_series.label("device") == "/dev/md0" {
+        let mut rewritten = time_series.clone_empty();
+        rewritten.set_label("device", "/dev/md/root");
+
+        for (time, value) in time_series.iter() {
+            if time < 1734447790 * 1000 {
+                rewritten.add(time, value);
+            }
+        }
+
+        return MigratedTimeSeries::Rewrite(vec![rewritten]);
+    }
+
+    if time_series.label("job") == "node" && time_series.label("instance") != "proxy" && time_series.label("device") == "md0" {
+        let mut rewritten = time_series.clone_empty();
+        rewritten.set_label("device", "md/root");
+
+        for (time, value) in time_series.iter() {
+            if time < 1734447790 * 1000 {
+                rewritten.add(time, value);
+            }
+        }
+
+        return MigratedTimeSeries::Rewrite(vec![rewritten]);
+    }
+
     if time_series.name() == "investments_performance" {
         if time_series.label("instrument") == "Russian bonds" {
             let euro_bonds_until = date(2021, 11, 6);

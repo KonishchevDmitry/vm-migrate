@@ -3,7 +3,7 @@ use std::fmt::Write;
 
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TimeSeries {
     metric: HashMap<String, String>,
