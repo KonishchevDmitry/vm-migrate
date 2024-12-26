@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# Migrates metrics
+#
+
+set -eu
+
+die() {
+    echo "$@" >&2
+    exit 1
+}
+
+migrate() {
+    local name="$1"
+
+    local path="/var/lib/monitoring/$name"
+    local migration_path="$path-migration"
+    local backup_path="$path.bak"
+
+    [ -e "$path" ] || die "$path doesn't exist."
+    [ ! -e "$backup_path" ] || die "$backup_path already exists."
+
+    systemctl stop "victoria-metrics@$name-migration"
+    rm -rf "$migration_path"
+
+    mkdir -m 700 "$migration_path"
+    chown victoria-metrics:victoria-metrics "$migration_path"
+
+    local start_time="$(date +%s)"
+    systemctl start "victoria-metrics@$name-migration"
+
+    echo "Migrating $name..."
+    run-migration
+
+    echo "Finalizing..."
+    run-migration --start "$start_time"
+
+    systemctl stop "victoria-metrics@$name" "victoria-metrics@$name-migration"
+    mv "$path" "$backup_path"
+    mv "$migration_path" "$path"
+    systemctl start "victoria-metrics@$name"
+
+    journalctl -u "victoria-metrics@$name-migration" -S "@$start_time" --no-pager
+}
+
+run-migration() {
+    time sudo -u "$SUDO_USER" bash -ic "cargo run --release -- $* '$source_url' '$target_url'"
+}
+
+if [ "$UID" -ne 0 -o -z "${SUDO_USER:-}" ]; then
+    die "The tool must be run from sudo."
+fi
+
+user=admin
+password=$(< /etc/monitoring/password)
+source_url="http://$user:$password@localhost:8429"
+target_url="http://$user:$password@localhost:8431"
+
+migrate hist
+migrate high
