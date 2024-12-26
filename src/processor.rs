@@ -79,7 +79,7 @@ async fn get_import_stream(source_url: &Url, start_time: Option<&str>) -> impl S
                     yield data;
                 },
 
-                MigratedTimeSeries::Changed(time_series) => {
+                MigratedTimeSeries::Changed(time_series) => if !time_series.is_empty() {
                     let mut buf = export_line.into_bytes();
                     buf.truncate(0);
 

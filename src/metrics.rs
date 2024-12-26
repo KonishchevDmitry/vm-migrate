@@ -55,10 +55,6 @@ impl TimeSeries {
         self.timestamps.len()
     }
 
-    pub fn has_records_before(&self, timestamp: i64) -> bool {
-        self.timestamps.iter().any(|&record| record < timestamp)
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (i64, Option<f64>)> + use<'_> {
         assert_eq!(self.timestamps.len(), self.values.len());
         self.timestamps.iter().cloned().zip(self.values.iter().cloned())
@@ -67,6 +63,20 @@ impl TimeSeries {
     pub fn add(&mut self, time: i64, value: Option<f64>) {
         self.timestamps.push(time);
         self.values.push(value);
+    }
+
+    pub fn filter<F>(&self, filter: F) -> TimeSeries
+        where F: Fn(i64, Option<f64>) -> bool
+    {
+        let mut result = self.clone_empty();
+
+        for (time, value) in self.iter() {
+            if filter(time, value) {
+                result.add(time, value);
+            }
+        }
+
+        result
     }
 
     pub fn clone_empty(&self) -> TimeSeries {
