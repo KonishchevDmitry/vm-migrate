@@ -6,17 +6,17 @@ edition = "2021"
 
 [dependencies]
 async-stream = "0.3.6"
-chrono = { version = "0.4.38", features = ["clock"] }
-clap = "4.5.21"
+chrono = { version = "0.4.39", features = ["clock"] }
+clap = "4.5.23"
 easy-logging = "1"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
 log = "0.4.22"
 reqwest = { version = "0.12.9", features = ["stream"] }
-serde = "1.0.215"
-serde_derive = "1.0.215"
-serde_json = "1.0.133"
+serde = "1.0.216"
+serde_derive = "1.0.216"
+serde_json = "1.0.134"
 tabled = "0.17.0"
 tokio = { version = "1", features = ["macros", "rt"] }
-tokio-util = "0.7.12"
+tokio-util = "0.7.13"
 url = "2.5.4"
