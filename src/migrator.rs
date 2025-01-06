@@ -2,12 +2,22 @@ use chrono::{Local, TimeZone};
 
 use crate::metrics::{TimeSeries, MigratedTimeSeries};
 
+// TODO(konishchev): Rename backups: macos.laptop -> laptop
+// TODO(konishchev): Drop all node_systemd_unit_state
 pub fn migrate(time_series: &TimeSeries) -> MigratedTimeSeries {
     if time_series.name().starts_with("backup_") && time_series.label("job") == "node" && time_series.label("name") == "job" {
         return MigratedTimeSeries::Deleted;
     }
 
     if time_series.label("service").contains("-org.fedoraproject.SetroubleshootPrivileged@") {
+        return MigratedTimeSeries::Deleted;
+    }
+
+    if time_series.label("job") == "node" && time_series.name() == "node_systemd_unit_state" {
+        return MigratedTimeSeries::Deleted;
+    }
+
+    if time_series.label("job") == "node" && time_series.label("instance") != "proxy" && time_series.label("device").ends_with("md126") {
         return MigratedTimeSeries::Deleted;
     }
 
