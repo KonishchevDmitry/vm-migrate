@@ -2,9 +2,38 @@ use chrono::{Local, TimeZone};
 
 use crate::metrics::{TimeSeries, MigratedTimeSeries};
 
-// TODO(konishchev): Rename backups: macos.laptop -> laptop
-// TODO(konishchev): Drop all node_systemd_unit_state
 pub fn migrate(time_series: &TimeSeries) -> MigratedTimeSeries {
+    let name = time_series.name();
+
+    if time_series.label("job") == "node" {
+        if name.starts_with("backup_") && time_series.label("name") == "macos.laptop" {
+            let mut time_series = time_series.clone();
+            time_series.set_label("name", "laptop");
+            return MigratedTimeSeries::Changed(time_series);
+        }
+
+        if name == "node_systemd_unit_state" {
+            return MigratedTimeSeries::Deleted;
+        }
+    }
+
+    if name == "investments_brokers" && time_series.label("broker") == "Тинькофф" {
+        let mut time_series = time_series.clone();
+        time_series.set_label("broker", "Т‑Банк");
+        return MigratedTimeSeries::Changed(time_series);
+    }
+
+    if name == "investments:asset_classes:funds" && time_series.label("issuer") == "Tinkoff" {
+        let mut time_series = time_series.clone();
+        time_series.set_label("issuer", "T-Bank");
+        return MigratedTimeSeries::Changed(time_series);
+    }
+
+    MigratedTimeSeries::Unchanged
+}
+
+#[allow(dead_code)]
+fn migrate_example(time_series: &TimeSeries) -> MigratedTimeSeries {
     if time_series.name().starts_with("backup_") && time_series.label("job") == "node" && time_series.label("name") == "job" {
         return MigratedTimeSeries::Deleted;
     }
