@@ -2,6 +2,32 @@ use chrono::{Local, TimeZone};
 
 use crate::metrics::{TimeSeries, MigratedTimeSeries};
 
+// TODO(konishchev): node_memory_MemTotal_bytes -> server_memory_meminfo{name="MemTotal"}
+// TODO(konishchev): node_memory_MemFree_bytes
+// TODO(konishchev): node_memory_Cached_bytes
+// TODO(konishchev): node_memory_Shmem_bytes
+// TODO(konishchev): node_memory_Buffers_bytes
+// TODO(konishchev): node_memory_KReclaimable_bytes
+// TODO(konishchev): node_memory_SReclaimable_bytes
+// TODO(konishchev): node_memory_MemAvailable_bytes
+// TODO(konishchev): node_memory_Percpu_bytes
+// TODO(konishchev): node_memory_KernelStack_bytes
+// TODO(konishchev): node_memory_PageTables_bytes
+// TODO(konishchev): node_memory_SecPageTables_bytes
+// TODO(konishchev): node_memory_VmallocUsed_bytes
+// TODO(konishchev): node_memory_Zswap_bytes
+// TODO(konishchev): node_memory_SwapCached_bytes
+// TODO(konishchev): node_memory_SUnreclaim_bytes
+// TODO(konishchev): node_memory_AnonPages_bytes
+// TODO(konishchev): node_memory_Unevictable_bytes
+// TODO(konishchev): node_memory_Active_anon_bytes -> Active(anon)
+// TODO(konishchev): node_memory_Active_file_bytes -> Active(file)
+// TODO(konishchev): node_memory_Inactive_anon_bytes -> Inactive(anon)
+// TODO(konishchev): node_memory_Inactive_file_bytes -> Inactive(file)
+// TODO(konishchev): node_memory_Writeback_bytes
+// TODO(konishchev): node_memory_Dirty_bytes
+// TODO(konishchev): node_memory_SwapTotal_bytes
+// TODO(konishchev): node_memory_SwapFree_bytes
 pub fn migrate(time_series: &TimeSeries) -> MigratedTimeSeries {
     let name = time_series.name();
 
