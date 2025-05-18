@@ -2,6 +2,7 @@ use chrono::{Local, TimeZone};
 
 use crate::metrics::{TimeSeries, MigratedTimeSeries};
 
+// TODO(konishchev): starting from 1747550059:
 // TODO(konishchev): node_memory_MemTotal_bytes -> server_memory_meminfo{name="MemTotal"}
 // TODO(konishchev): node_memory_MemFree_bytes
 // TODO(konishchev): node_memory_Cached_bytes
